@@ -1,0 +1,23 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <header class="navbar navbar-dark bg-dark px-3 shadow-sm sticky-top">
+        <a class="navbar-brand fw-bold" href="/">🔧 MecanicoApp</a>
+        <div class="d-flex gap-2">
+            <NavLink class="btn btn-outline-light btn-sm" href="/clientes" Match="NavLinkMatch.Prefix">
+                👤 Clientes
+            </NavLink>
+            <NavLink class="btn btn-outline-light btn-sm" href="/autos" Match="NavLinkMatch.Prefix">
+                🚗 Autos
+            </NavLink>
+        </div>
+    </header>
+
+    <main class="container py-4">
+        @Body
+    </main>
+
+    <footer class="text-center text-muted py-3 border-top small mt-4">
+        MecanicoApp &copy; @DateTime.Now.Year — Gestión de taller automotriz
+    </footer>
+</div>

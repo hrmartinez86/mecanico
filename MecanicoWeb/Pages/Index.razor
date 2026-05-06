@@ -1,0 +1,41 @@
+﻿@page "/"
+
+<PageTitle>MecanicoApp — Inicio</PageTitle>
+
+<div class="py-5 text-center">
+    <div style="font-size:4rem">🔧</div>
+    <h1 class="display-5 fw-bold mt-3">Bienvenido a MecanicoApp</h1>
+    <p class="lead text-muted">Sistema de gestión de clientes, autos e historial de servicios para talleres automotrices.</p>
+
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="/clientes" class="btn btn-primary btn-lg">👤 Clientes</a>
+        <a href="/autos" class="btn btn-outline-primary btn-lg">🚗 Autos</a>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-4">
+            <div style="font-size:2.5rem">👤</div>
+            <h5 class="mt-2">Registro de clientes</h5>
+            <p class="text-muted small">Gestiona la información de contacto de tus clientes.</p>
+            <a href="/clientes/nuevo" class="btn btn-sm btn-outline-primary">+ Nuevo cliente</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-4">
+            <div style="font-size:2.5rem">🚗</div>
+            <h5 class="mt-2">Registro de autos</h5>
+            <p class="text-muted small">Vincula vehículos a sus propietarios y controla kilometraje.</p>
+            <a href="/autos/nuevo" class="btn btn-sm btn-outline-primary">+ Registrar auto</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-4">
+            <div style="font-size:2.5rem">📋</div>
+            <h5 class="mt-2">Historial de servicios</h5>
+            <p class="text-muted small">Registra diagnósticos, reparaciones, costos y seguimiento.</p>
+            <a href="/autos" class="btn btn-sm btn-outline-primary">Ver autos →</a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,146 @@
+@page "/autos/nuevo"
+@page "/autos/{Id:int}/editar"
+@inject AutoService AutoSvc
+@inject ClienteService ClienteSvc
+@inject NavigationManager Nav
+
+<PageTitle>@(_isEdit ? "Editar auto" : "Registrar auto") — Mecánico</PageTitle>
+
+<div class="d-flex align-items-center mb-3">
+    <a href="/autos" class="btn btn-sm btn-outline-secondary me-2">← Volver</a>
+    <h2 class="mb-0">@(_isEdit ? "✏️ Editar auto" : "🚗 Registrar auto")</h2>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <div class="card shadow-sm" style="max-width:650px">
+        <div class="card-body">
+            <EditForm Model="_form" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                @if (_errorMsg is not null)
+                {
+                    <div class="alert alert-danger">@_errorMsg</div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Cliente *</label>
+                        <InputSelect class="form-select" @bind-Value="_form.ClienteId">
+                            <option value="0">— Seleccione un cliente —</option>
+                            @if (_clientes is not null)
+                            {
+                                @foreach (var c in _clientes)
+                                {
+                                    <option value="@c.Id">@c.NombreCompleto</option>
+                                }
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _form.ClienteId" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Marca *</label>
+                        <InputText class="form-control" @bind-Value="_form.Marca" placeholder="Toyota, Ford, Honda..." />
+                        <ValidationMessage For="() => _form.Marca" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Modelo *</label>
+                        <InputText class="form-control" @bind-Value="_form.Modelo" placeholder="Corolla, Civic..." />
+                        <ValidationMessage For="() => _form.Modelo" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Año *</label>
+                        <InputNumber class="form-control" @bind-Value="_form.Anio" />
+                        <ValidationMessage For="() => _form.Anio" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Color</label>
+                        <InputText class="form-control" @bind-Value="_form.Color" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Placa</label>
+                        <InputText class="form-control" @bind-Value="_form.Placa" placeholder="ABC-123" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">VIN / N° serie</label>
+                        <InputText class="form-control" @bind-Value="_form.Vin" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Kilometraje</label>
+                        <InputNumber class="form-control" @bind-Value="_form.Kilometraje" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notas</label>
+                        <InputTextArea class="form-control" @bind-Value="_form.Notas" rows="3" />
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @(_isEdit ? "Guardar cambios" : "Registrar auto")
+                    </button>
+                    <a href="/autos" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private AutoForm _form = new();
+    private List<ClienteResponse>? _clientes;
+    private bool _isEdit => Id.HasValue;
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _errorMsg;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _clientes = await ClienteSvc.GetAllAsync();
+
+        if (_isEdit)
+        {
+            var auto = await AutoSvc.GetByIdAsync(Id!.Value);
+            if (auto is null) { Nav.NavigateTo("/autos"); return; }
+            _form = new AutoForm
+            {
+                ClienteId = auto.ClienteId,
+                Marca = auto.Marca,
+                Modelo = auto.Modelo,
+                Anio = auto.Anio,
+                Color = auto.Color,
+                Placa = auto.Placa,
+                Vin = auto.Vin,
+                Kilometraje = auto.Kilometraje,
+                Notas = auto.Notas
+            };
+        }
+        _loading = false;
+    }
+
+    private async Task Guardar()
+    {
+        _saving = true;
+        _errorMsg = null;
+
+        if (_isEdit)
+        {
+            var (_, error) = await AutoSvc.UpdateAsync(Id!.Value, _form);
+            if (error is not null) { _errorMsg = error; _saving = false; return; }
+        }
+        else
+        {
+            var (_, error) = await AutoSvc.CreateAsync(_form);
+            if (error is not null) { _errorMsg = error; _saving = false; return; }
+        }
+
+        Nav.NavigateTo("/autos");
+    }
+}

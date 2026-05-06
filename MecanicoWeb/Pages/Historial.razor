@@ -1,0 +1,385 @@
+@page "/autos/{AutoId:int}/historial"
+@inject ServicioService ServicioSvc
+@inject AutoService AutoSvc
+@inject NavigationManager Nav
+
+<PageTitle>Historial — Mecánico</PageTitle>
+
+@if (_auto is not null)
+{
+    <div class="d-flex align-items-center mb-1">
+        <a href="/autos" class="btn btn-sm btn-outline-secondary me-2">← Volver</a>
+        <div>
+            <h2 class="mb-0">📋 @_auto.Descripcion</h2>
+            <small class="text-muted">👤 @_auto.NombreCliente
+                @if (_auto.Placa is not null) { <span> · 🔢 @_auto.Placa</span> }
+                @if (_auto.Kilometraje.HasValue) { <span> · @_auto.Kilometraje?.ToString("N0") km</span> }
+            </small>
+        </div>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center my-3">
+    <h5 class="mb-0 text-muted">Historial de servicios</h5>
+    <button class="btn btn-primary" @onclick="() => _mostrarForm = true">+ Registrar servicio</button>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_servicios is null || _servicios.Count == 0)
+{
+    <div class="alert alert-info">Sin servicios registrados. ¡Registra el primero!</div>
+}
+else
+{
+    <!-- Línea de tiempo -->
+    <div class="timeline">
+        @foreach (var s in _servicios)
+        {
+            <div class="timeline-item mb-4">
+                <div class="d-flex gap-3">
+                    <!-- Ícono tipo -->
+                    <div class="timeline-icon rounded-circle d-flex align-items-center justify-content-center flex-shrink-0
+                                @GetBgClass(s.Estado)" style="width:46px;height:46px;font-size:1.3rem">
+                        @GetIcono(s.Tipo)
+                    </div>
+
+                    <!-- Tarjeta -->
+                    <div class="card flex-grow-1 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div>
+                                    <h6 class="mb-1">@s.Titulo</h6>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <span class="badge @GetBadgeClass(s.Tipo)">@s.Tipo</span>
+                                        <span class="badge @GetEstadoBadge(s.Estado)">@s.Estado</span>
+                                        <span class="badge bg-light text-dark">📅 @s.Fecha.ToString("dd/MM/yyyy")</span>
+                                        @if (s.Mecanico is not null)
+                                        {
+                                            <span class="badge bg-light text-dark">👨‍🔧 @s.Mecanico</span>
+                                        }
+                                        @if (s.KilometrajeEntrada.HasValue)
+                                        {
+                                            <span class="badge bg-light text-dark">📍 @s.KilometrajeEntrada?.ToString("N0") km</span>
+                                        }
+                                    </div>
+                                </div>
+                                @if (s.CostoTotal.HasValue)
+                                {
+                                    <div class="text-end">
+                                        <span class="fw-bold text-success fs-5">$@s.CostoTotal.Value.ToString("N2")</span>
+                                        @if (s.CostoManoObra.HasValue || s.CostoPiezas.HasValue)
+                                        {
+                                            <br />
+                                            <small class="text-muted">
+                                                MO: $@(s.CostoManoObra?.ToString("N2") ?? "0") · Piezas: $@(s.CostoPiezas?.ToString("N2") ?? "0")
+                                            </small>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            @if (s.Descripcion is not null)
+                            {
+                                <p class="mt-2 mb-1 text-muted small">@s.Descripcion</p>
+                            }
+
+                            @if (s.Diagnostico is not null)
+                            {
+                                <div class="alert alert-warning py-1 px-2 mt-2 mb-1 small">
+                                    <strong>🔍 Diagnóstico:</strong> @s.Diagnostico
+                                </div>
+                            }
+
+                            @if (s.TrabajoRealizado is not null)
+                            {
+                                <div class="alert alert-success py-1 px-2 mb-1 small">
+                                    <strong>✅ Trabajo realizado:</strong> @s.TrabajoRealizado
+                                </div>
+                            }
+
+                            @if (s.Observaciones is not null)
+                            {
+                                <p class="mt-1 mb-0 text-muted small"><em>@s.Observaciones</em></p>
+                            }
+
+                            <div class="mt-2 d-flex gap-1 justify-content-end">
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @onclick="() => IniciarEdicion(s)">✏️ Editar</button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => ConfirmarEliminar(s.Id, s.Titulo)">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<!-- Modal: Registrar / Editar servicio -->
+@if (_mostrarForm)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editId.HasValue ? "✏️ Editar servicio" : "🔧 Registrar servicio")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarForm"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="_form" OnValidSubmit="GuardarServicio">
+                        <DataAnnotationsValidator />
+
+                        @if (_formError is not null)
+                        {
+                            <div class="alert alert-danger">@_formError</div>
+                        }
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo</label>
+                                <InputSelect class="form-select" @bind-Value="_form.Tipo">
+                                    @foreach (var t in Enum.GetValues<TipoServicio>())
+                                    {
+                                        <option value="@t">@t</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado</label>
+                                <InputSelect class="form-select" @bind-Value="_form.Estado">
+                                    @foreach (var e in Enum.GetValues<EstadoServicio>())
+                                    {
+                                        <option value="@e">@e</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Título *</label>
+                                <InputText class="form-control" @bind-Value="_form.Titulo" placeholder="Ej: Cambio de aceite y filtro" />
+                                <ValidationMessage For="() => _form.Titulo" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha *</label>
+                                <InputDate class="form-control" @bind-Value="_fechaDate" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha de término</label>
+                                <InputDate class="form-control" @bind-Value="_fechaTerminoDate" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Descripción</label>
+                                <InputTextArea class="form-control" @bind-Value="_form.Descripcion" rows="2" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Diagnóstico</label>
+                                <InputTextArea class="form-control" @bind-Value="_form.Diagnostico" rows="2" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Trabajo realizado</label>
+                                <InputTextArea class="form-control" @bind-Value="_form.TrabajoRealizado" rows="2" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Mecánico</label>
+                                <InputText class="form-control" @bind-Value="_form.Mecanico" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Km entrada</label>
+                                <InputNumber class="form-control" @bind-Value="_form.KilometrajeEntrada" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Costo total ($)</label>
+                                <InputNumber class="form-control" @bind-Value="_form.CostoTotal" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Costo mano de obra ($)</label>
+                                <InputNumber class="form-control" @bind-Value="_form.CostoManoObra" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Costo piezas ($)</label>
+                                <InputNumber class="form-control" @bind-Value="_form.CostoPiezas" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Observaciones</label>
+                                <InputTextArea class="form-control" @bind-Value="_form.Observaciones" rows="2" />
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                @(_editId.HasValue ? "Guardar cambios" : "Registrar servicio")
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CerrarForm">Cancelar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal confirmar eliminar -->
+@if (_confirmarId.HasValue)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h6 class="modal-title">Confirmar</h6></div>
+                <div class="modal-body"><p>¿Eliminar <strong>@_confirmarNombre</strong>?</p></div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _confirmarId = null">Cancelar</button>
+                    <button class="btn btn-sm btn-danger" @onclick="EliminarServicio">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int AutoId { get; set; }
+
+    private AutoResponse? _auto;
+    private List<ServicioResponse>? _servicios;
+    private bool _loading = true;
+    private bool _mostrarForm = false;
+    private bool _saving = false;
+    private string? _formError;
+    private ServicioForm _form = new();
+    private int? _editId;
+    private DateTime _fechaDate = DateTime.Today;
+    private DateTime? _fechaTerminoDate;
+    private int? _confirmarId;
+    private string _confirmarNombre = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _auto = await AutoSvc.GetByIdAsync(AutoId);
+        await CargarHistorial();
+    }
+
+    private async Task CargarHistorial()
+    {
+        _loading = true;
+        _servicios = await ServicioSvc.GetHistorialAsync(AutoId);
+        _loading = false;
+    }
+
+    private void IniciarEdicion(ServicioResponse s)
+    {
+        _editId = s.Id;
+        _form = new ServicioForm
+        {
+            AutoId = AutoId,
+            Tipo = s.Tipo,
+            Titulo = s.Titulo,
+            Descripcion = s.Descripcion,
+            Diagnostico = s.Diagnostico,
+            TrabajoRealizado = s.TrabajoRealizado,
+            CostoManoObra = s.CostoManoObra,
+            CostoPiezas = s.CostoPiezas,
+            CostoTotal = s.CostoTotal,
+            Fecha = s.Fecha.ToString("yyyy-MM-dd"),
+            FechaTermino = s.FechaTermino?.ToString("yyyy-MM-dd"),
+            Mecanico = s.Mecanico,
+            Estado = s.Estado,
+            KilometrajeEntrada = s.KilometrajeEntrada,
+            Observaciones = s.Observaciones
+        };
+        _fechaDate = s.Fecha.ToDateTime(TimeOnly.MinValue);
+        _fechaTerminoDate = s.FechaTermino.HasValue
+            ? s.FechaTermino.Value.ToDateTime(TimeOnly.MinValue)
+            : null;
+        _mostrarForm = true;
+    }
+
+    private void CerrarForm()
+    {
+        _mostrarForm = false;
+        _editId = null;
+        _form = new ServicioForm { AutoId = AutoId };
+        _fechaDate = DateTime.Today;
+        _fechaTerminoDate = null;
+        _formError = null;
+    }
+
+    private async Task GuardarServicio()
+    {
+        _saving = true;
+        _formError = null;
+        _form.Fecha = DateOnly.FromDateTime(_fechaDate).ToString("yyyy-MM-dd");
+        _form.FechaTermino = _fechaTerminoDate.HasValue
+            ? DateOnly.FromDateTime(_fechaTerminoDate.Value).ToString("yyyy-MM-dd")
+            : null;
+        _form.AutoId = AutoId;
+
+        if (_editId.HasValue)
+        {
+            var (_, error) = await ServicioSvc.UpdateAsync(_editId.Value, _form);
+            if (error is not null) { _formError = error; _saving = false; return; }
+        }
+        else
+        {
+            var (_, error) = await ServicioSvc.CreateAsync(_form);
+            if (error is not null) { _formError = error; _saving = false; return; }
+        }
+
+        CerrarForm();
+        await CargarHistorial();
+        _saving = false;
+    }
+
+    private void ConfirmarEliminar(int id, string titulo)
+    {
+        _confirmarId = id;
+        _confirmarNombre = titulo;
+    }
+
+    private async Task EliminarServicio()
+    {
+        if (!_confirmarId.HasValue) return;
+        await ServicioSvc.DeleteAsync(_confirmarId.Value);
+        _servicios?.RemoveAll(s => s.Id == _confirmarId.Value);
+        _confirmarId = null;
+    }
+
+    // ─── Helpers visuales ───────────────────────────────────────────────────
+
+    private static string GetIcono(TipoServicio t) => t switch
+    {
+        TipoServicio.Reparacion   => "🔧",
+        TipoServicio.Revision     => "🔍",
+        TipoServicio.Diagnostico  => "💡",
+        TipoServicio.Preventivo   => "🛡️",
+        TipoServicio.Servicio     => "⚙️",
+        _                         => "📋"
+    };
+
+    private static string GetBgClass(EstadoServicio e) => e switch
+    {
+        EstadoServicio.Completado => "bg-success text-white",
+        EstadoServicio.EnProceso  => "bg-warning",
+        EstadoServicio.Cancelado  => "bg-danger text-white",
+        _                         => "bg-secondary text-white"
+    };
+
+    private static string GetBadgeClass(TipoServicio t) => t switch
+    {
+        TipoServicio.Reparacion  => "bg-danger",
+        TipoServicio.Diagnostico => "bg-info text-dark",
+        TipoServicio.Preventivo  => "bg-success",
+        TipoServicio.Revision    => "bg-secondary",
+        _                        => "bg-primary"
+    };
+
+    private static string GetEstadoBadge(EstadoServicio e) => e switch
+    {
+        EstadoServicio.Completado => "bg-success",
+        EstadoServicio.EnProceso  => "bg-warning text-dark",
+        EstadoServicio.Cancelado  => "bg-danger",
+        _                         => "bg-secondary"
+    };
+}

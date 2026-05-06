@@ -1,0 +1,161 @@
+@page "/autos"
+@inject AutoService AutoSvc
+@inject ClienteService ClienteSvc
+@inject NavigationManager Nav
+
+<PageTitle>Autos — Mecánico</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">🚗 Autos</h2>
+    <a href="/autos/nuevo" class="btn btn-primary">+ Registrar auto</a>
+</div>
+
+<!-- Filtros -->
+<div class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input class="form-control" placeholder="Buscar marca, modelo, placa..."
+               @bind="searchTerm" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+    </div>
+    <div class="col-md-4">
+        <select class="form-select" @bind="clienteFiltro" @bind:after="LoadAutos">
+            <option value="0">— Todos los clientes —</option>
+            @if (_clientes is not null)
+            {
+                @foreach (var c in _clientes)
+                {
+                    <option value="@c.Id">@c.NombreCompleto</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-secondary" @onclick="LoadAutos">🔍 Buscar</button>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_autos is null || _autos.Count == 0)
+{
+    <div class="alert alert-info">No se encontraron autos.</div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var a in _autos)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">@a.Descripcion</h5>
+                        <p class="text-muted small mb-2">👤 @a.NombreCliente</p>
+
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            @if (a.Placa is not null)
+                            {
+                                <span class="badge bg-dark">🔢 @a.Placa</span>
+                            }
+                            @if (a.Color is not null)
+                            {
+                                <span class="badge bg-secondary">🎨 @a.Color</span>
+                            }
+                            @if (a.Kilometraje.HasValue)
+                            {
+                                <span class="badge bg-info text-dark">📍 @a.Kilometraje?.ToString("N0") km</span>
+                            }
+                            <span class="badge bg-primary">🔧 @a.TotalServicios servicios</span>
+                        </div>
+
+                        <div class="d-flex gap-1">
+                            <a href="/autos/@a.Id/historial" class="btn btn-sm btn-primary flex-grow-1">📋 Historial</a>
+                            <a href="/autos/@a.Id/editar" class="btn btn-sm btn-outline-secondary">✏️</a>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => ConfirmarEliminar(a.Id, a.Descripcion)">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_errorMsg is not null)
+{
+    <div class="alert alert-danger mt-3 alert-dismissible">
+        @_errorMsg
+        <button type="button" class="btn-close" @onclick="() => _errorMsg = null"></button>
+    </div>
+}
+
+@if (_confirmarId.HasValue)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Confirmar eliminación</h6>
+                </div>
+                <div class="modal-body">
+                    <p>¿Eliminar <strong>@_confirmarNombre</strong>?</p>
+                    <small class="text-muted">Se eliminará también todo su historial de servicios.</small>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _confirmarId = null">Cancelar</button>
+                    <button class="btn btn-sm btn-danger" @onclick="EliminarAuto">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AutoResponse>? _autos;
+    private List<ClienteResponse>? _clientes;
+    private bool _loading = true;
+    private string? _errorMsg;
+    private string searchTerm = string.Empty;
+    private int clienteFiltro = 0;
+    private int? _confirmarId;
+    private string _confirmarNombre = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clientes = await ClienteSvc.GetAllAsync();
+        await LoadAutos();
+    }
+
+    private async Task LoadAutos()
+    {
+        _loading = true;
+        _autos = await AutoSvc.GetAllAsync(
+            clienteId: clienteFiltro == 0 ? null : clienteFiltro,
+            search: searchTerm);
+        _loading = false;
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAutos();
+    }
+
+    private void ConfirmarEliminar(int id, string nombre)
+    {
+        _confirmarId = id;
+        _confirmarNombre = nombre;
+    }
+
+    private async Task EliminarAuto()
+    {
+        if (!_confirmarId.HasValue) return;
+        var res = await AutoSvc.DeleteAsync(_confirmarId.Value);
+        if (res.IsSuccessStatusCode)
+            _autos?.RemoveAll(a => a.Id == _confirmarId.Value);
+        else
+            _errorMsg = "Error al eliminar el auto";
+        _confirmarId = null;
+    }
+}

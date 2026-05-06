@@ -1,0 +1,136 @@
+@page "/clientes"
+@inject ClienteService ClienteSvc
+@inject NavigationManager Nav
+
+<PageTitle>Clientes — Mecánico</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">👤 Clientes</h2>
+    <a href="/clientes/nuevo" class="btn btn-primary">+ Nuevo cliente</a>
+</div>
+
+<div class="input-group mb-3" style="max-width:400px">
+    <input class="form-control" placeholder="Buscar por nombre, email o teléfono..."
+           @bind="searchTerm" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+    <button class="btn btn-outline-secondary" @onclick="LoadClientes">🔍</button>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Cargando clientes...</p>
+    </div>
+}
+else if (_clientes is null || _clientes.Count == 0)
+{
+    <div class="alert alert-info">No se encontraron clientes.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Teléfono</th>
+                    <th>Autos</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _clientes)
+                {
+                    <tr>
+                        <td class="text-muted small">@c.Id</td>
+                        <td><strong>@c.NombreCompleto</strong></td>
+                        <td>@c.Email</td>
+                        <td>@(c.Telefono ?? "—")</td>
+                        <td>
+                            <span class="badge bg-secondary">@c.TotalAutos</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="/clientes/@c.Id/editar" class="btn btn-sm btn-outline-primary me-1">✏️ Editar</a>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => ConfirmarEliminar(c.Id, c.NombreCompleto)">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_errorMsg is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_errorMsg
+        <button type="button" class="btn-close" @onclick="() => _errorMsg = null"></button>
+    </div>
+}
+
+<!-- Modal confirmación eliminar -->
+@if (_confirmarId.HasValue)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Confirmar eliminación</h6>
+                </div>
+                <div class="modal-body">
+                    <p>¿Eliminar a <strong>@_confirmarNombre</strong>?</p>
+                    <small class="text-muted">Se eliminarán también sus autos e historial.</small>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _confirmarId = null">Cancelar</button>
+                    <button class="btn btn-sm btn-danger" @onclick="EliminarCliente">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ClienteResponse>? _clientes;
+    private bool _loading = true;
+    private string? _errorMsg;
+    private string searchTerm = string.Empty;
+    private int? _confirmarId;
+    private string _confirmarNombre = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadClientes();
+
+    private async Task LoadClientes()
+    {
+        _loading = true;
+        _clientes = await ClienteSvc.GetAllAsync(searchTerm);
+        _loading = false;
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadClientes();
+    }
+
+    private void ConfirmarEliminar(int id, string nombre)
+    {
+        _confirmarId = id;
+        _confirmarNombre = nombre;
+    }
+
+    private async Task EliminarCliente()
+    {
+        if (!_confirmarId.HasValue) return;
+        var res = await ClienteSvc.DeleteAsync(_confirmarId.Value);
+        if (res.IsSuccessStatusCode)
+            _clientes?.RemoveAll(c => c.Id == _confirmarId.Value);
+        else
+            _errorMsg = "Error al eliminar el cliente";
+        _confirmarId = null;
+    }
+}
