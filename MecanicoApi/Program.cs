@@ -21,17 +21,8 @@ builder.Services.AddControllers()
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
-// ─── Swagger / OpenAPI ───────────────────────────────────────────────────────
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new()
-    {
-        Title = "Mecánico API",
-        Version = "v1",
-        Description = "API REST para gestión de clientes, autos e historial de servicios/reparaciones"
-    });
-});
+// ─── OpenAPI nativo (.NET 9/10) ───────────────────────────────────────────────
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
@@ -43,12 +34,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Mecánico API v1");
-    c.RoutePrefix = "swagger";
-});
+// OpenAPI nativo: sirve el JSON en /openapi/v1.json
+app.MapOpenApi();
 
 app.UseCors();
 app.UseAuthorization();
